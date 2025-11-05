@@ -90,9 +90,6 @@ outputs:
 runs:
   using: composite
 
-env:
-  ACTIONS_STEP_DEBUG: true
-
 
   steps:
 
@@ -256,6 +253,7 @@ env:
       uses: actions/github-script@v7
       if: ${{ inputs.delete_only == false }}
       env:
+        ACTIONS_STEP_DEBUG: true
         APPS: ${{ inputs.apps }}
         CD_PATH_REL: ${{ inputs.cd_repo }}
         OVERLAY_DIR: ${{ inputs.overlay_dir }}
@@ -378,6 +376,7 @@ env:
       if: ${{ inputs.delete_only == false }}
       uses: actions/github-script@v7
       env:
+        ACTIONS_STEP_DEBUG: true
         APPS: ${{ inputs.apps }}
         ARGOCD_URL: ${{ steps.argocd_conn.outputs.argocd_url }}
         ARGOCD_TOKEN: ${{ steps.argocd_conn.outputs.token }}
@@ -417,6 +416,7 @@ env:
       if: ${{ inputs.skip_status_check == false && inputs.delete_only == false }}
       uses: actions/github-script@v7
       env:
+        ACTIONS_STEP_DEBUG: true
         APPS: ${{ inputs.apps }}
         ARGOCD_URL: ${{ steps.argocd_conn.outputs.argocd_url }}
         ARGOCD_TOKEN: ${{ steps.argocd_conn.outputs.token }}
