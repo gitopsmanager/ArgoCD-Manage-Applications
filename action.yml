@@ -214,6 +214,7 @@ runs:
         CURL_SSL_FLAGS: ${{ steps.argocd_conn.outputs.curl_ssl_flags }}
         NAMESPACE: ${{ inputs.namespace }}
         NO_FAIL: ${{ inputs.no_fail }}
+        TEMPLATE_FILE: ${{ github.action_path }}/templates/argocd-app-template-v6.json
       with:
         script: |
           const { execSync } = require('child_process');
@@ -222,6 +223,8 @@ runs:
           const nunjucks = require('./nunjucks.js');
           const apps = JSON.parse(process.env.APPS || '[]');
           const allowSoftFail = String(process.env.NO_FAIL) === "true";
+          const template = fs.readFileSync(process.env.TEMPLATE_FILE, "utf8");
+          
           function failOrWarn(msg) {
             if (allowSoftFail) core.warning(msg); else core.setFailed(msg);
           }
@@ -230,9 +233,7 @@ runs:
             catch { return ""; }
           }
 
-          // Load template relative to this action
-          const templatePath = path.join(__dirname, 'templates/argocd-app-template-v6.json');
-          const template = fs.readFileSync(templatePath, 'utf8');
+
 
           for (const app of apps) {
             const appName = `${process.env.NAMESPACE}-${app.name}`;
