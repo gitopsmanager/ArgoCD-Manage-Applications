@@ -231,7 +231,18 @@ runs:
           }
 
     - name: Marker – entered composite action
-      run: echo "🧭 Entered composite action – about to run Check/Create step"
+      run: |
+        echo "🧭 Entered composite action – about to run Check/Create step"
+        echo "delete_only raw value = '${{ inputs.delete_only }}'"
+
+        if [ "${{ inputs.delete_only }}" = "true" ]; then
+          echo "❌ delete_only evaluates to TRUE → guarded steps will be skipped."
+        else
+          echo "✅ delete_only evaluates to FALSE → guarded steps should run."
+        fi
+
+        echo "📂 github.action_path = '${{ github.action_path }}'"
+        echo "📄 Template expected at: '${{ github.action_path }}/templates/argocd-app-template-v6.json'"
       shell: bash
 
 
