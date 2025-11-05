@@ -200,13 +200,12 @@ runs:
             }
           }
 
-
     - name: Check or create ArgoCD applications (per app)
-      if: ${{ inputs.delete_only == 'false' }}
       uses: actions/github-script@v7
+      if: ${{ inputs.delete_only == false }}
       env:
-        APPS: ${{ inputs.apps }}                      # was steps.apps.outputs.apps
-        CD_PATH_REL: ${{ inputs.cd_repo }}            # was steps.copy.outputs.cd_path_rel
+        APPS: ${{ inputs.apps }}
+        CD_PATH_REL: ${{ inputs.cd_repo }}
         OVERLAY_DIR: ${{ inputs.overlay_dir }}
         CD_REPO: ${{ inputs.cd_repo }}
         CD_REPO_ORG: ${{ inputs.cd_repo_org }}
@@ -221,52 +220,72 @@ runs:
           const fs = require('fs');
           const path = require('path');
           const nunjucks = require('./nunjucks.js');
-
           const apps = JSON.parse(process.env.APPS || '[]');
 
+          // === Helper functions (same logic, extra debug) ===
           function curlJson(url) {
+            const cmd = `curl -s ${process.env.CURL_SSL_FLAGS} -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" "${url}"`;
+            core.info(`🔎 curlJson executing: ${cmd.replace(process.env.ARGOCD_TOKEN, '<REDACTED>')}`);
             try {
-              return execSync(`curl -s ${process.env.CURL_SSL_FLAGS} -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" "${url}"`).toString();
-            } catch {
-              return "";
+              const result = execSync(cmd).toString();
+              core.info(`📡 curlJson response (first 400 chars): ${result.slice(0,400)}${result.length>400?'…':''}`);
+              return result;
+            } catch (err) {
+              core.warning(`⚠️ curlJson failed for ${url}: ${err.message}`);
+              return '';
             }
           }
 
           function deleteApp(appUrl, appName) {
-            execSync(`curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} -X DELETE "${appUrl}" -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" -H "Content-Type: application/json"`);
+            const delCmd = `curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} -X DELETE "${appUrl}" -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" -H "Content-Type: application/json"`;
+            core.info(`🗑️ Deleting app ${appName} with: ${delCmd.replace(process.env.ARGOCD_TOKEN, '<REDACTED>')}`);
+            execSync(delCmd);
             const timeout = Date.now() + 120000;
             while (Date.now() < timeout) {
-              const code = parseInt(execSync(`curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" "${appUrl}"`).toString());
+              const checkCmd = `curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" "${appUrl}"`;
+              const code = parseInt(execSync(checkCmd).toString());
+              core.info(`⌛ Delete check for ${appName}: HTTP ${code}`);
               if (code === 403) return true;
-              Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000); // simple sleep(5s)
+              new Promise(r => setTimeout(r, 5000));
             }
             return false;
           }
 
-          // Load bundled template from the action repo (not from caller)
-          const template = fs.readFileSync(process.env.TEMPLATE_FILE, 'utf8');
+          // === Load template ===
+          const templatePath = process.env.TEMPLATE_FILE;
+          core.info(`📂 Loading template: ${templatePath}`);
+          const template = fs.readFileSync(templatePath, 'utf8');
+          core.info(`📜 Template content (first 500 chars):\n${template.slice(0,500)}${template.length>500?'…':''}`);
 
+          // === Main processing loop ===
           for (const app of apps) {
             const appName = `${process.env.NAMESPACE}-${app.name}`;
             const statusUrl = `${process.env.ARGOCD_URL}/api/v1/applications/${appName}`;
             const basePath = path.join(process.env.CD_PATH_REL, app.name, 'overlays', process.env.OVERLAY_DIR);
 
+            core.startGroup(`🔧 Processing ${appName}`);
+            core.info(`🔍 Checking status at: ${statusUrl}`);
+            core.info(`📁 Base path: ${basePath}`);
+
             const status = curlJson(statusUrl);
             if (status) {
               try {
                 const existing = JSON.parse(status);
+                core.info(`📄 Existing app JSON (first 300 chars): ${JSON.stringify(existing).slice(0,300)}${status.length>300?'…':''}`);
                 if (existing?.spec?.source?.path !== basePath) {
                   core.warning(`⚠️ Path mismatch for ${appName}, recreating`);
                   deleteApp(statusUrl, appName);
                 } else {
                   core.info(`✅ Argo app ${appName} exists with correct path.`);
+                  core.endGroup();
                   continue;
                 }
-              } catch {
-                // non-JSON / non-200: fall through to creation
+              } catch (err) {
+                core.warning(`⚠️ Failed to parse ArgoCD app JSON for ${appName}: ${err.message}`);
               }
             }
 
+            // Render manifest
             const rendered = nunjucks.renderString(template, {
               APP_NAME: appName,
               NAMESPACE: process.env.NAMESPACE,
@@ -274,9 +293,26 @@ runs:
               CD_REPO_ORG: process.env.CD_REPO_ORG,
               CD_PATH: basePath
             });
+            core.info(`🧩 Rendered ArgoCD manifest (first 800 chars):\n${rendered.slice(0,800)}${rendered.length>800?'…':''}`);
 
-            execSync(`curl -s ${process.env.CURL_SSL_FLAGS} -X POST "${process.env.ARGOCD_URL}/api/v1/applications" -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" -H "Content-Type: application/json" -d '${rendered.replace(/'/g,"'\\''")}'`);
-            core.info(`✅ Created Argo app ${appName}`);
+            // Create app
+            const postCmd = `curl -s ${process.env.CURL_SSL_FLAGS} -X POST "${process.env.ARGOCD_URL}/api/v1/applications" \
+              -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d '${rendered.replace(/'/g,"'\\''")}' -w "\\n%{http_code}"`;
+            core.info(`🚀 Creating app with: ${postCmd.replace(process.env.ARGOCD_TOKEN, '<REDACTED>')}`);
+
+            try {
+              const output = execSync(postCmd).toString();
+              const [responseBody, httpCode] = output.split('\n');
+              core.info(`📡 Create response HTTP ${httpCode}`);
+              core.info(`📦 Response body (first 500 chars): ${responseBody.slice(0,500)}${responseBody.length>500?'…':''}`);
+              core.info(`✅ Created Argo app ${appName}`);
+            } catch (err) {
+              core.warning(`❌ curl POST failed for ${appName}: ${err.message}`);
+            }
+
+            core.endGroup();
           }
 
 
