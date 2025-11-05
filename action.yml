@@ -65,8 +65,6 @@ runs:
         IN_TOKEN: ${{ inputs.argocd_auth_token }}
         IN_USER: ${{ inputs.argocd_username }}
         IN_PASS: ${{ inputs.argocd_password }}
-        SEC_USER: ${{ secrets.ARGOCD_USERNAME }}
-        SEC_PASS: ${{ secrets.ARGOCD_PASSWORD }}
       run: |
         set -euo pipefail
         if [ -n "${IN_TOKEN:-}" ]; then
