@@ -2,6 +2,9 @@ name: "ArgoCD Manage Applications"
 description: "Handles full ArgoCD lifecycle: auth, connect, delete, create, sync, wait-for-sync. Supports no-fail mode for restore cluster runs."
 
 inputs:
+  argocd_url:
+    description: "Full ArgoCD base URL (e.g. https://aks-prod-weu-argocd-argocd-web-ui.affinity7software.com)"
+    required: true
   argocd_auth_token:
     required: false
   argocd_username:
@@ -98,6 +101,7 @@ runs:
       id: argocd_conn
       uses: actions/github-script@v7
       env:
+        ARGOCD_URL: ${{ inputs.argocd_url }}
         MODE: ${{ steps.resolve_auth.outputs.mode }}
         TOKEN: ${{ steps.resolve_auth.outputs.token }}
         USERNAME: ${{ steps.resolve_auth.outputs.username }}
@@ -110,9 +114,12 @@ runs:
         script: |
           const { execSync } = require('child_process');
           const fs = require('fs');
-          const cluster = process.env.CLUSTER;
-          const dnsZone = process.env.DNS_ZONE;
-          const argocdUrl = `https://${cluster}-argocd-argocd-web-ui.${dnsZone}`;
+          const argocdUrl = process.env.ARGOCD_URL;
+          if (!argocdUrl) {
+            core.setFailed("❌ Missing required input: argocd_url");
+            return;
+          }
+
 
           let curlSslFlags = "";
           if (String(process.env.INSECURE_ARGO) === "true") {
