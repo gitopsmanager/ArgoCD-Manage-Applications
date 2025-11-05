@@ -93,11 +93,12 @@ runs:
 
   steps:
 
-    - name: Debug runtime
+    - name: Verify delete_only type
       run: |
-        echo "Runner version: $GITHUB_ACTIONS_RUNNER_VERSION"
-        echo "Node version: $(node -v)"
+        echo "delete_only raw  : '${{ inputs.delete_only }}'"
+        echo "Expression result: ${{ inputs.delete_only == false }}"
       shell: bash
+
 
 
     - name: Resolve ArgoCD auth
