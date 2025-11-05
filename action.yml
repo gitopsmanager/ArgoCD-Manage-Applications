@@ -36,6 +36,11 @@ inputs:
     required: true
     type: string
 
+  cd_path_rel:
+    description: "Relative path inside the CD repo where app files were copied (e.g. <cluster>/<namespace>)"
+    required: true
+    type: string
+
   cd_repo_org:
     required: true
     type: string
@@ -263,7 +268,7 @@ runs:
       env:
         ACTIONS_STEP_DEBUG: true
         APPS: ${{ inputs.apps }}
-        CD_PATH_REL: ${{ inputs.cd_repo }}
+        CD_PATH_REL: ${{ inputs.cd_path_rel }} 
         OVERLAY_DIR: ${{ inputs.overlay_dir }}
         CD_REPO: ${{ inputs.cd_repo }}
         CD_REPO_ORG: ${{ inputs.cd_repo_org }}
