@@ -301,7 +301,7 @@ runs:
 
           function deleteApp(appUrl, appName) {
             const delCmd = `curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} -X DELETE "${appUrl}" -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" -H "Content-Type: application/json"`;
-            core.info(`🗑️ Deleting app ${appName} with: ${delCmd.replace(process.env.ARGOCD_TOKEN, '<REDACTED>')}`);
+            core.info(`🗑️ Deleting app ${appName}`);
             execSync(delCmd);
             const timeout = Date.now() + 120000;
             while (Date.now() < timeout) {
@@ -319,7 +319,7 @@ runs:
 
           core.info(`📂 Loading template: ${templatePath}`);
           const template = fs.readFileSync(templatePath, 'utf8');
-          core.info(`📜 Template content (first 500 chars):\n${template.slice(0,500)}${template.length>500?'…':''}`);
+          // core.info(`📜 Template content (first 500 chars):\n${template.slice(0,500)}${template.length>500?'…':''}`);
 
           // === Main processing loop ===
           for (const app of apps) {
@@ -328,14 +328,14 @@ runs:
             const basePath = path.join(process.env.CD_PATH_REL, app.name, 'overlays', process.env.OVERLAY_DIR);
 
             core.startGroup(`🔧 Processing ${appName}`);
-            core.info(`🔍 Checking status at: ${statusUrl}`);
+            // core.info(`🔍 Checking status at: ${statusUrl}`);
             core.info(`📁 Base path: ${basePath}`);
 
             const status = curlJson(statusUrl);
             if (status) {
               try {
                 const existing = JSON.parse(status);
-                core.info(`📄 Existing app JSON (first 300 chars): ${JSON.stringify(existing).slice(0,300)}${status.length>300?'…':''}`);
+                // core.info(`📄 Existing app JSON (first 300 chars): ${JSON.stringify(existing).slice(0,300)}${status.length>300?'…':''}`);
                 if (existing?.spec?.source?.path !== basePath) {
                   core.warning(`⚠️ Path mismatch for ${appName}, recreating`);
                   deleteApp(statusUrl, appName);
@@ -357,14 +357,14 @@ runs:
               CD_REPO_ORG: process.env.CD_REPO_ORG,
               CD_PATH: basePath
             });
-            core.info(`🧩 Rendered ArgoCD manifest (first 800 chars):\n${rendered.slice(0,800)}${rendered.length>800?'…':''}`);
+            // core.info(`🧩 Rendered ArgoCD manifest (first 800 chars):\n${rendered.slice(0,800)}${rendered.length>800?'…':''}`);
 
             // Create app
             const postCmd = `curl -s ${process.env.CURL_SSL_FLAGS} -X POST "${process.env.ARGOCD_URL}/api/v1/applications" \
               -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" \
               -H "Content-Type: application/json" \
               -d '${rendered.replace(/'/g,"'\\''")}' -w "\\n%{http_code}"`;
-            core.info(`🚀 Creating app with: ${postCmd.replace(process.env.ARGOCD_TOKEN, '<REDACTED>')}`);
+            core.info(`🚀 Creating app ${appName}`);
 
             try {
               const output = execSync(postCmd).toString();
