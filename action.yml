@@ -186,7 +186,7 @@ runs:
           core.setOutput('token', finalToken);
 
     - name: Delete ArgoCD apps (per app)
-      if: ${{ inputs.delete_first == 'true' || inputs.delete_only == 'true' }}
+      if: ${{ inputs.delete_first == true || inputs.delete_only == true }}
       uses: actions/github-script@v7
       env:
         APPS: ${{ inputs.apps }}
@@ -359,7 +359,7 @@ runs:
 
     - name: Sync ArgoCD apps (per app)
       id: sync
-      if: ${{ inputs.delete_only == 'false' }}
+      if: ${{ inputs.delete_only == false }}
       uses: actions/github-script@v7
       env:
         APPS: ${{ inputs.apps }}
@@ -398,7 +398,7 @@ runs:
           core.setOutput('baselines', JSON.stringify(baselines));
 
     - name: Wait for ArgoCD sync (per app)
-      if: ${{ inputs.skip_status_check == 'false' && inputs.delete_only == 'false' }}
+      if: ${{ inputs.skip_status_check == false && inputs.delete_only == false }}
       uses: actions/github-script@v7
       env:
         APPS: ${{ inputs.apps }}
