@@ -93,6 +93,13 @@ runs:
 
   steps:
 
+    - name: Debug runtime
+      run: |
+        echo "Runner version: $GITHUB_ACTIONS_RUNNER_VERSION"
+        echo "Node version: $(node -v)"
+      shell: bash
+
+
     - name: Resolve ArgoCD auth
       id: resolve_auth
       shell: bash
