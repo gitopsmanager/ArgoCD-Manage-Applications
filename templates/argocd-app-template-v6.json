@@ -1,0 +1,29 @@
+{
+  "apiVersion": "argoproj.io/v1alpha1",
+  "kind": "Application",
+  "metadata": {
+    "name": "{{ APP_NAME }}"
+  },
+  "spec": {
+    "project": "default",
+    "source": {
+      "repoURL": "https://github.com/{{ CD_REPO_ORG }}/{{ CD_REPO }}",
+      "path": "{{ CD_PATH }}"
+    },
+    "destination": {
+      "server": "https://kubernetes.default.svc",
+      "namespace": "{{ NAMESPACE }}"
+    },
+    "syncPolicy": {
+      "automated": {
+        "prune": true,
+        "selfHeal": false
+      },
+      "syncOptions": [
+        "CreateNamespace=true"
+      ]
+    }
+  }
+}
+
+
