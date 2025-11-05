@@ -70,11 +70,7 @@ inputs:
     default: false
     type: string
 
-  no_fail:
-    description: "If true, ArgoCD create/sync/wait errors are logged as warnings but do not fail the job."
-    required: false
-    default: false
-    type: string
+ 
 
 
 outputs:
@@ -209,15 +205,10 @@ runs:
         ARGOCD_TOKEN: ${{ steps.argocd_conn.outputs.token }}
         CURL_SSL_FLAGS: ${{ steps.argocd_conn.outputs.curl_ssl_flags }}
         NAMESPACE: ${{ inputs.namespace }}
-        NO_FAIL: ${{ inputs.no_fail }}
       with:
         script: |
           const { execSync } = require('child_process');
           const apps = JSON.parse(process.env.APPS || '[]');
-          const allowSoftFail = String(process.env.NO_FAIL) === "true";
-          function failOrWarn(msg) {
-            if (allowSoftFail) core.warning(msg); else core.setFailed(msg);
-          }
           function httpCode(cmd) {
             return parseInt(execSync(`${cmd} -o /dev/null -w "%{http_code}"`).toString().trim(), 10);
           }
@@ -229,7 +220,7 @@ runs:
             const code = httpCode(delCmd);
             core.info(`Delete response HTTP ${code}`);
             if (![200,202,204].includes(code)) {
-              failOrWarn(`❌ Failed to delete ${appName}: HTTP ${code}`);
+              core.setFailed(`❌ Failed to delete ${appName}: HTTP ${code}`);
               continue;
             }
             const timeout = Date.now() + 120000;
@@ -375,16 +366,11 @@ runs:
         ARGOCD_TOKEN: ${{ steps.argocd_conn.outputs.token }}
         CURL_SSL_FLAGS: ${{ steps.argocd_conn.outputs.curl_ssl_flags }}
         NAMESPACE: ${{ inputs.namespace }}
-        NO_FAIL: ${{ inputs.no_fail }}
       with:
         script: |
           const { execSync } = require('child_process');
           const apps = JSON.parse(process.env.APPS || '[]');
           const baselines = {};
-          const allowSoftFail = String(process.env.NO_FAIL) === "true";
-          function failOrWarn(msg) {
-            if (allowSoftFail) core.warning(msg); else core.setFailed(msg);
-          }
           for (const app of apps) {
             const appName = `${process.env.NAMESPACE}-${app.name}`;
             const statusUrl = `${process.env.ARGOCD_URL}/api/v1/applications/${appName}`;
@@ -400,7 +386,7 @@ runs:
               execSync(`curl -s ${process.env.CURL_SSL_FLAGS} -X POST "${statusUrl}/sync" -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" -H "Content-Type: application/json" -d '{"prune":true,"force":true}'`);
               core.info(`🚀 Force-prune sync triggered: ${appName}`);
             } catch (err) {
-              failOrWarn(`❌ Failed to sync ${appName}: ${err.message}`);
+              core.setFailed(`❌ Failed to sync ${appName}: ${err.message}`);
             }
           }
           core.setOutput('baselines', JSON.stringify(baselines));
@@ -416,16 +402,11 @@ runs:
         CURL_SSL_FLAGS: ${{ steps.argocd_conn.outputs.curl_ssl_flags }}
         NAMESPACE: ${{ inputs.namespace }}
         BASELINES: ${{ steps.sync.outputs.baselines }}
-        NO_FAIL: ${{ inputs.no_fail }}
       with:
         script: |
           const { execSync } = require('child_process');
           const apps = JSON.parse(process.env.APPS || '[]');
           const baselines = JSON.parse(process.env.BASELINES || '{}');
-          const allowSoftFail = String(process.env.NO_FAIL) === "true";
-          function failOrWarn(msg) {
-            if (allowSoftFail) core.warning(msg); else core.setFailed(msg);
-          }
           function allResourcesSynced(json) {
             const results = json?.status?.operationState?.syncResult?.resources || json?.status?.operationState?.results || [];
             return Array.isArray(results) && results.length > 0 && results.every(r => r.status === 'Synced' || r.hookPhase === 'Succeeded');
@@ -449,7 +430,7 @@ runs:
                 const allSynced = allResourcesSynced(json);
                 if (startedAt > baseline) {
                   if (lastHealth === 'Degraded') {
-                    failOrWarn(`❌ ${appName} is Synced but health=Degraded.`);
+                    core.setFailed(`❌ ${appName} is Synced but health=Degraded.`);
                     break;
                   }
                   if (lastPhase === 'Succeeded' && lastSync === 'Synced' && lastHealth === 'Healthy') {
@@ -469,7 +450,7 @@ runs:
               } catch (err) {
                 consecutiveErrors++;
                 if (consecutiveErrors > 3) {
-                  failOrWarn(`❌ Failed to fetch status for ${appName}: ${err.message}`);
+                  core.setFailed(`❌ Failed to fetch status for ${appName}: ${err.message}`);
                   break;
                 } else {
                   core.warning(`⚠️ Failed to fetch status for ${appName} (attempt ${consecutiveErrors}): ${err.message}`);
@@ -477,7 +458,7 @@ runs:
               }
               await new Promise(r => setTimeout(r, 10000));
             }
-            if (!ok) failOrWarn(`❌ Sync did not complete in time for ${appName} (phase=${lastPhase}, sync=${lastSync}, health=${lastHealth})`);
+            if (!ok) core.setFailed(`❌ Sync did not complete in time for ${appName} (phase=${lastPhase}, sync=${lastSync}, health=${lastHealth})`);
             core.endGroup();
           }
 
