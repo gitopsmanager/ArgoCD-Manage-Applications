@@ -200,12 +200,13 @@ runs:
             }
           }
 
+
     - name: Check or create ArgoCD applications (per app)
       if: ${{ inputs.delete_only == 'false' }}
       uses: actions/github-script@v7
       env:
-        APPS: ${{ inputs.apps }}
-        CD_PATH_REL: ${{ inputs.cd_repo }}
+        APPS: ${{ inputs.apps }}                      # was steps.apps.outputs.apps
+        CD_PATH_REL: ${{ inputs.cd_repo }}            # was steps.copy.outputs.cd_path_rel
         OVERLAY_DIR: ${{ inputs.overlay_dir }}
         CD_REPO: ${{ inputs.cd_repo }}
         CD_REPO_ORG: ${{ inputs.cd_repo_org }}
@@ -213,7 +214,6 @@ runs:
         ARGOCD_TOKEN: ${{ steps.argocd_conn.outputs.token }}
         CURL_SSL_FLAGS: ${{ steps.argocd_conn.outputs.curl_ssl_flags }}
         NAMESPACE: ${{ inputs.namespace }}
-        NO_FAIL: ${{ inputs.no_fail }}
         TEMPLATE_FILE: ${{ github.action_path }}/templates/argocd-app-template-v6.json
       with:
         script: |
@@ -221,49 +221,65 @@ runs:
           const fs = require('fs');
           const path = require('path');
           const nunjucks = require('./nunjucks.js');
+
           const apps = JSON.parse(process.env.APPS || '[]');
-          const allowSoftFail = String(process.env.NO_FAIL) === "true";
-          const template = fs.readFileSync(process.env.TEMPLATE_FILE, "utf8");
-          
-          function failOrWarn(msg) {
-            if (allowSoftFail) core.warning(msg); else core.setFailed(msg);
-          }
+
           function curlJson(url) {
-            try { return execSync(`curl -s ${process.env.CURL_SSL_FLAGS} -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" "${url}"`).toString(); }
-            catch { return ""; }
+            try {
+              return execSync(`curl -s ${process.env.CURL_SSL_FLAGS} -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" "${url}"`).toString();
+            } catch {
+              return "";
+            }
           }
 
+          function deleteApp(appUrl, appName) {
+            execSync(`curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} -X DELETE "${appUrl}" -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" -H "Content-Type: application/json"`);
+            const timeout = Date.now() + 120000;
+            while (Date.now() < timeout) {
+              const code = parseInt(execSync(`curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" "${appUrl}"`).toString());
+              if (code === 403) return true;
+              Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000); // simple sleep(5s)
+            }
+            return false;
+          }
 
+          // Load bundled template from the action repo (not from caller)
+          const template = fs.readFileSync(process.env.TEMPLATE_FILE, 'utf8');
 
           for (const app of apps) {
             const appName = `${process.env.NAMESPACE}-${app.name}`;
             const statusUrl = `${process.env.ARGOCD_URL}/api/v1/applications/${appName}`;
             const basePath = path.join(process.env.CD_PATH_REL, app.name, 'overlays', process.env.OVERLAY_DIR);
+
             const status = curlJson(statusUrl);
-            try {
-              if (status) {
+            if (status) {
+              try {
                 const existing = JSON.parse(status);
-                if (existing?.spec?.source?.path === basePath) {
+                if (existing?.spec?.source?.path !== basePath) {
+                  core.warning(`⚠️ Path mismatch for ${appName}, recreating`);
+                  deleteApp(statusUrl, appName);
+                } else {
                   core.info(`✅ Argo app ${appName} exists with correct path.`);
                   continue;
-                } else {
-                  core.warning(`⚠️ Path mismatch for ${appName}, recreating`);
-                  execSync(`curl -s ${process.env.CURL_SSL_FLAGS} -X DELETE "${statusUrl}" -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}"`);
                 }
+              } catch {
+                // non-JSON / non-200: fall through to creation
               }
-              const rendered = nunjucks.renderString(template, {
-                APP_NAME: appName,
-                NAMESPACE: process.env.NAMESPACE,
-                CD_REPO: process.env.CD_REPO,
-                CD_REPO_ORG: process.env.CD_REPO_ORG,
-                CD_PATH: basePath
-              });
-              execSync(`curl -s ${process.env.CURL_SSL_FLAGS} -X POST "${process.env.ARGOCD_URL}/api/v1/applications" -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" -H "Content-Type: application/json" -d '${rendered.replace(/'/g,"'\\''")}'`);
-              core.info(`✅ Created Argo app ${appName}`);
-            } catch (err) {
-              failOrWarn(`❌ Error creating ${appName}: ${err.message}`);
             }
+
+            const rendered = nunjucks.renderString(template, {
+              APP_NAME: appName,
+              NAMESPACE: process.env.NAMESPACE,
+              CD_REPO: process.env.CD_REPO,
+              CD_REPO_ORG: process.env.CD_REPO_ORG,
+              CD_PATH: basePath
+            });
+
+            execSync(`curl -s ${process.env.CURL_SSL_FLAGS} -X POST "${process.env.ARGOCD_URL}/api/v1/applications" -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" -H "Content-Type: application/json" -d '${rendered.replace(/'/g,"'\\''")}'`);
+            core.info(`✅ Created Argo app ${appName}`);
           }
+
+
 
     - name: Sync ArgoCD apps (per app)
       id: sync
