@@ -22,7 +22,7 @@ inputs:
   insecure_argo:
     required: false
     default: false
-    type: boolean
+    type: string
 
   argocd_ca_cert:
     required: false
@@ -53,23 +53,23 @@ inputs:
   delete_first:
     required: false
     default: false
-    type: boolean
+    type: string
 
   delete_only:
     required: false
     default: false
-    type: boolean
+    type: string
 
   skip_status_check:
     required: false
     default: false
-    type: boolean
+    type: string
 
   no_fail:
     description: "If true, ArgoCD create/sync/wait errors are logged as warnings but do not fail the job."
     required: false
     default: false
-    type: boolean
+    type: string
 
 
 outputs:
@@ -96,7 +96,7 @@ runs:
     - name: Verify delete_only type
       run: |
         echo "delete_only raw  : '${{ inputs.delete_only }}'"
-        echo "Expression result: ${{ inputs.delete_only == false }}"
+        echo "Expression result: ${{ inputs.delete_only == 'false' }}"
       shell: bash
 
 
@@ -196,7 +196,7 @@ runs:
           core.setOutput('token', finalToken);
 
     - name: Delete ArgoCD apps (per app)
-      if: ${{ inputs.delete_first == true || inputs.delete_only == true }}
+      if: ${{ inputs.delete_first == 'true' || inputs.delete_only == 'true' }}
       uses: actions/github-script@v7
       env:
         APPS: ${{ inputs.apps }}
@@ -259,7 +259,7 @@ runs:
 
     - name: Check or create ArgoCD applications (per app)
       uses: actions/github-script@v7
-      if: ${{ inputs.delete_only == false }}
+      if: ${{ inputs.delete_only == 'false' }}
       env:
         ACTIONS_STEP_DEBUG: true
         APPS: ${{ inputs.apps }}
@@ -381,7 +381,7 @@ runs:
 
     - name: Sync ArgoCD apps (per app)
       id: sync
-      if: ${{ inputs.delete_only == false }}
+      if: ${{ inputs.delete_only == 'false' }}
       uses: actions/github-script@v7
       env:
         ACTIONS_STEP_DEBUG: true
@@ -421,7 +421,7 @@ runs:
           core.setOutput('baselines', JSON.stringify(baselines));
 
     - name: Wait for ArgoCD sync (per app)
-      if: ${{ inputs.skip_status_check == false && inputs.delete_only == false }}
+      if: ${{ inputs.skip_status_check == 'false' && inputs.delete_only == 'false' }}
       uses: actions/github-script@v7
       env:
         ACTIONS_STEP_DEBUG: true
