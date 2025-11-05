@@ -200,7 +200,10 @@ runs:
             }
           }
 
-    - run: echo "🧭 Entered composite action – about to run Check/Create step"
+    - name: Marker – entered composite action
+      run: echo "🧭 Entered composite action – about to run Check/Create step"
+      shell: bash
+
 
 
     - name: Check or create ArgoCD applications (per app)
@@ -319,7 +322,10 @@ runs:
             core.endGroup();
           }
 
-    - run: echo "🧭 Entered composite action Sync ArgoCD step"
+    - name: Marker – entered composite action
+      run: echo "🧭 Entered composite action – about to run ArgoCD Sync step"
+      shell: bash
+
 
     - name: Sync ArgoCD apps (per app)
       id: sync
