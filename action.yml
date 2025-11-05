@@ -200,6 +200,9 @@ runs:
             }
           }
 
+    - run: echo "🧭 Entered composite action – about to run Check/Create step"
+
+
     - name: Check or create ArgoCD applications (per app)
       uses: actions/github-script@v7
       if: ${{ inputs.delete_only == false }}
@@ -253,6 +256,7 @@ runs:
 
           // === Load template ===
           const templatePath = process.env.TEMPLATE_FILE;
+
           core.info(`📂 Loading template: ${templatePath}`);
           const template = fs.readFileSync(templatePath, 'utf8');
           core.info(`📜 Template content (first 500 chars):\n${template.slice(0,500)}${template.length>500?'…':''}`);
@@ -315,7 +319,7 @@ runs:
             core.endGroup();
           }
 
-
+    - run: echo "🧭 Entered composite action Sync ArgoCD step"
 
     - name: Sync ArgoCD apps (per app)
       id: sync
