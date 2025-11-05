@@ -5,42 +5,72 @@ inputs:
   argocd_url:
     description: "Full ArgoCD base URL (e.g. https://aks-prod-weu-argocd-argocd-web-ui.affinity7software.com)"
     required: true
+    type: string
+
   argocd_auth_token:
     required: false
+    type: string
+
   argocd_username:
     required: false
+    type: string
+
   argocd_password:
     required: false
+    type: string
+
   insecure_argo:
     required: false
     default: false
+    type: boolean
+
   argocd_ca_cert:
     required: false
+    type: string
+
   namespace:
     required: true
+    type: string
+
   cd_repo:
     required: true
+    type: string
+
   cd_repo_org:
     required: true
+    type: string
+
   overlay_dir:
     required: false
     default: ""
+    type: string
+
   apps:
     description: "JSON array of {name, path, images}"
     required: true
+    type: string
+
   delete_first:
     required: false
     default: false
+    type: boolean
+
   delete_only:
     required: false
     default: false
+    type: boolean
+
   skip_status_check:
     required: false
     default: false
+    type: boolean
+
   no_fail:
     description: "If true, ArgoCD create/sync/wait errors are logged as warnings but do not fail the job."
     required: false
     default: false
+    type: boolean
+
 
 outputs:
   argocd_url:
