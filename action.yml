@@ -240,7 +240,7 @@ runs:
           const { execSync } = require('child_process');
           const fs = require('fs');
           const path = require('path');
-          const nunjucks = require('./nunjucks.js');
+          require(path.join(process.env.GITHUB_ACTION_PATH, 'nunjucks.js'))
           const apps = JSON.parse(process.env.APPS || '[]');
 
           // === Helper functions (same logic, extra debug) ===
