@@ -72,22 +72,6 @@ inputs:
 
  
 
-
-outputs:
-  argocd_url:
-    description: "Resolved ArgoCD base URL"
-    value: ${{ steps.argocd_conn.outputs.argocd_url }}
-  curl_ssl_flags:
-    description: "Resolved curl SSL flags"
-    value: ${{ steps.argocd_conn.outputs.curl_ssl_flags }}
-  token:
-    description: "ArgoCD session token"
-    value: ${{ steps.argocd_conn.outputs.token }}
-  baselines:
-    description: "Sync operation baselines for each app"
-    value: ${{ steps.sync.outputs.baselines }}
-
-
 runs:
   using: composite
 
