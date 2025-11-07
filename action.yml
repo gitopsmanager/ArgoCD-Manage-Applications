@@ -315,7 +315,6 @@ runs:
             const statusUrl = `${process.env.ARGOCD_URL}/api/v1/applications/${appName}`;
             const basePath = path.join(process.env.CD_PATH_REL, app.name, 'overlays', process.env.OVERLAY_DIR);
 
-            core.startGroup(`🔧 Processing ${appName}`);
             // core.info(`🔍 Checking status at: ${statusUrl}`);
             core.info(`📁 Base path: ${basePath}`);
 
@@ -329,7 +328,7 @@ runs:
                   deleteApp(statusUrl, appName);
                 } else {
                   core.info(`✅ Argo app ${appName} exists with correct path.`);
-                  core.endGroup();
+        
                   continue;
                 }
               } catch (err) {
@@ -442,7 +441,7 @@ runs:
             const appKey = `${process.env.NAMESPACE}/${app.name}`;
             const statusUrl = `${process.env.ARGOCD_URL}/api/v1/applications/${appName}`;
             const baseline = baselines[appName] || 0;
-            core.startGroup(`⏳ Waiting for sync of ${appName}, baseline=${baseline}`);
+            core.info(`⏳ Waiting for sync of ${appName}, baseline=${baseline}`);
 
             let ok = false;
             let lastPhase, lastSync, lastHealth;
@@ -530,12 +529,9 @@ runs:
               }
             } catch (fatal) {
               if (fatal.message === "stop") {
-                core.endGroup();
                 break; // stop checking other apps after first fatal error
               }
             }
-
-            core.endGroup();
           }
 
           // --- Summary Section ---
