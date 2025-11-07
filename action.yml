@@ -240,18 +240,17 @@ runs:
           const { execSync } = require('child_process');
           const fs = require('fs');
           const path = require('path');
-          global.core = core; // make injected core globally available
-          core.info(`GITHUB_ACTION_PATH=${process.env.GITHUB_ACTION_PATH || 'undefined'}`);
+          // core.info(`GITHUB_ACTION_PATH=${process.env.GITHUB_ACTION_PATH || 'undefined'}`);
           const nunjucks = require(path.join(process.env.GITHUB_ACTION_PATH, 'nunjucks.js'))
           const apps = JSON.parse(process.env.APPS || '[]');
 
           // === Helper functions (same logic, extra debug) ===
           function curlJson(url) {
             const cmd = `curl -s ${process.env.CURL_SSL_FLAGS} -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" "${url}"`;
-            core.info(`🔎 curlJson executing: ${cmd.replace(process.env.ARGOCD_TOKEN, '<REDACTED>')}`);
+            // core.info(`🔎 curlJson executing: ${url} with added bearer`);
             try {
               const result = execSync(cmd).toString();
-              core.info(`📡 curlJson response (first 400 chars): ${result.slice(0,400)}${result.length>400?'…':''}`);
+              // core.info(`📡 curlJson response (first 400 chars): ${result.slice(0,400)}${result.length>400?'…':''}`);
               return result;
             } catch (err) {
               core.warning(`⚠️ curlJson failed for ${url}: ${err.message}`);
@@ -305,7 +304,7 @@ runs:
           // === Load template ===
           const templatePath = process.env.TEMPLATE_FILE;
 
-          core.info(`📂 Loading template: ${templatePath}`);
+          // core.info(`📂 Loading template: ${templatePath}`);
           const template = fs.readFileSync(templatePath, 'utf8');
           // core.info(`📜 Template content (first 500 chars):\n${template.slice(0,500)}${template.length>500?'…':''}`);
 
