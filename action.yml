@@ -258,6 +258,7 @@ runs:
             }
           }
 
+
           function deleteApp(appUrl, appName) {
             return new Promise(async (resolve) => {
               const { execSync } = require('child_process');
@@ -266,22 +267,35 @@ runs:
               const delCmd = `curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} \
                 -X DELETE "${appUrl}" -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" \
                 -H "Content-Type: application/json"`;
-              core.info(`🗑️ Deleting app ${appName}`);
-              execSync(delCmd);
+
+              try {
+                core.info(`🗑️ Deleting app ${appName}`);
+                execSync(delCmd);
+              } catch (err) {
+                core.warning(`⚠️ Delete request for ${appName} failed: ${err.message}`);
+              }
 
               const timeout = Date.now() + 120000;
               while (Date.now() < timeout) {
-                const checkCmd = `curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} \
-                  -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" "${appUrl}"`;
-                const code = parseInt(execSync(checkCmd).toString());
-                core.info(`⌛ Delete check for ${appName}: HTTP ${code}`);
-                if (code === 403) {
-                  resolve(true);
-                  return;
+                try {
+                  const checkCmd = `curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} \
+                    -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" "${appUrl}"`;
+                  const code = parseInt(execSync(checkCmd).toString());
+                  core.info(`⌛ Delete check for ${appName}: HTTP ${code}`);
+
+                  if (code === 403) {
+                    core.info(`✅ ${appName} confirmed deleted`);
+                    resolve(true);
+                    return;
+                  }
+                } catch (err) {
+                  core.warning(`⚠️ Delete check failed for ${appName}: ${err.message}`);
                 }
-                await new Promise(r => setTimeout(r, 5000)); // ✅ works in github-script
+
+                await new Promise(r => setTimeout(r, 5000));
               }
 
+              core.warning(`⌛ Timed out waiting for ${appName} to delete`);
               resolve(false);
             });
           }
