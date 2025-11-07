@@ -316,7 +316,7 @@ runs:
             const basePath = path.join(process.env.CD_PATH_REL, app.name, 'overlays', process.env.OVERLAY_DIR);
 
             // core.info(`🔍 Checking status at: ${statusUrl}`);
-            core.info(`📁 Base path: ${basePath}`);
+            core.info(`Processing app ${appName} with 📁 Base path: ${basePath}`);
 
             const status = curlJson(statusUrl);
             if (status) {
@@ -409,7 +409,7 @@ runs:
       if: ${{ inputs.skip_status_check == 'false' && inputs.delete_only == 'false' }}
       uses: actions/github-script@v7
       env:
-        APPS: ${{ steps.apps.outputs.apps }}
+        APPS: ${{ inputs.apps }}
         ARGOCD_URL: ${{ steps.argocd_conn.outputs.argocd_url }}
         ARGOCD_TOKEN: ${{ steps.argocd_conn.outputs.token }}
         CURL_SSL_FLAGS: ${{ steps.argocd_conn.outputs.curl_ssl_flags }}
@@ -441,7 +441,7 @@ runs:
             const appKey = `${process.env.NAMESPACE}/${app.name}`;
             const statusUrl = `${process.env.ARGOCD_URL}/api/v1/applications/${appName}`;
             const baseline = baselines[appName] || 0;
-            core.info(`⏳ Waiting for sync of ${appName}, baseline=${baseline}`);
+            core.startGroup(`⏳ Waiting for sync of ${appName}, baseline=${baseline}`);
 
             let ok = false;
             let lastPhase, lastSync, lastHealth;
@@ -527,11 +527,15 @@ runs:
               } else {
                 results[appKey] = "✅";
               }
+              core.endGroup();              
             } catch (fatal) {
               if (fatal.message === "stop") {
                 break; // stop checking other apps after first fatal error
               }
             }
+            finally {
+              core.endGroup();
+            }            
           }
 
           // --- Summary Section ---
