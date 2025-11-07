@@ -240,6 +240,7 @@ runs:
           const { execSync } = require('child_process');
           const fs = require('fs');
           const path = require('path');
+          global.core = core; // make injected core globally available
           core.info(`GITHUB_ACTION_PATH=${process.env.GITHUB_ACTION_PATH || 'undefined'}`);
           const nunjucks = require(path.join(process.env.GITHUB_ACTION_PATH, 'nunjucks.js'))
           const apps = JSON.parse(process.env.APPS || '[]');
