@@ -241,7 +241,7 @@ runs:
           const fs = require('fs');
           const path = require('path');
           core.info(`GITHUB_ACTION_PATH=${process.env.GITHUB_ACTION_PATH || 'undefined'}`);
-          require(path.join(process.env.GITHUB_ACTION_PATH, 'nunjucks.js'))
+          const nunjucks = require(path.join(process.env.GITHUB_ACTION_PATH, 'nunjucks.js'))
           const apps = JSON.parse(process.env.APPS || '[]');
 
           // === Helper functions (same logic, extra debug) ===
