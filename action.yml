@@ -240,11 +240,7 @@ runs:
           const { execSync } = require('child_process');
           const fs = require('fs');
           const path = require('path');
-
-          core.info(`cwd=${process.cwd()}`);
-          core.info(`__dirname=${__dirname}`);
           core.info(`GITHUB_ACTION_PATH=${process.env.GITHUB_ACTION_PATH || 'undefined'}`);
-
           require(path.join(process.env.GITHUB_ACTION_PATH, 'nunjucks.js'))
           const apps = JSON.parse(process.env.APPS || '[]');
 
