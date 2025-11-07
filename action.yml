@@ -408,7 +408,7 @@ runs:
 
 
     - name: Wait for ArgoCD sync (per app)
-      if: ${{ inputs.skip_status_check == false && inputs.delete_only == false }}
+      if: ${{ inputs.skip_status_check == 'false' && inputs.delete_only == 'false' }}
       uses: actions/github-script@v7
       env:
         APPS: ${{ steps.apps.outputs.apps }}
