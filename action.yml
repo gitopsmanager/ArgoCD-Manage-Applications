@@ -257,24 +257,34 @@ runs:
             }
           }
 
-          async function deleteApp(appUrl, appName) {
-            const delCmd = `curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} \
-              -X DELETE "${appUrl}" -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" \
-              -H "Content-Type: application/json"`;
-            core.info(`🗑️ Deleting app ${appName}`);
-            execSync(delCmd);
+          function deleteApp(appUrl, appName) {
+            return new Promise(async (resolve) => {
+              const { execSync } = require('child_process');
+              const core = require('@actions/core');
 
-            const timeout = Date.now() + 120000;
-            while (Date.now() < timeout) {
-              const checkCmd = `curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} \
-                -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" "${appUrl}"`;
-              const code = parseInt(execSync(checkCmd).toString());
-              core.info(`⌛ Delete check for ${appName}: HTTP ${code}`);
-              if (code === 403) return true;
-              await new Promise(r => setTimeout(r, 5000));   // ✅ actually waits
-            }
-            return false;
+              const delCmd = `curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} \
+                -X DELETE "${appUrl}" -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" \
+                -H "Content-Type: application/json"`;
+              core.info(`🗑️ Deleting app ${appName}`);
+              execSync(delCmd);
+
+              const timeout = Date.now() + 120000;
+              while (Date.now() < timeout) {
+                const checkCmd = `curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} \
+                  -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" "${appUrl}"`;
+                const code = parseInt(execSync(checkCmd).toString());
+                core.info(`⌛ Delete check for ${appName}: HTTP ${code}`);
+                if (code === 403) {
+                  resolve(true);
+                  return;
+                }
+                await new Promise(r => setTimeout(r, 5000)); // ✅ works in github-script
+              }
+
+              resolve(false);
+            });
           }
+
 
 
           // === Load template ===
@@ -301,7 +311,7 @@ runs:
                 // core.info(`📄 Existing app JSON (first 300 chars): ${JSON.stringify(existing).slice(0,300)}${status.length>300?'…':''}`);
                 if (existing?.spec?.source?.path !== basePath) {
                   core.warning(`⚠️ Path mismatch for ${appName}, recreating`);
-                  await deleteApp(statusUrl, appName);
+                  deleteApp(statusUrl, appName);
                 } else {
                   core.info(`✅ Argo app ${appName} exists with correct path.`);
                   core.endGroup();
