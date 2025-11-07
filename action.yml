@@ -263,7 +263,6 @@ runs:
           function deleteApp(appUrl, appName) {
             return new Promise(async (resolve) => {
               const { execSync } = require('child_process');
-              const core = require('@actions/core');
 
               const delCmd = `curl -s -o /dev/null -w "%{http_code}" ${process.env.CURL_SSL_FLAGS} \
                 -X DELETE "${appUrl}" -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" \
