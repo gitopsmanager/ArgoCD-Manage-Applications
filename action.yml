@@ -78,9 +78,10 @@ inputs:
     type: string
 
 outputs:
-  applications:
-    description: "JSON list of ArgoCD applications (only set when list_only=true)"
-    value: ${{ steps.list_apps.outputs.applications }}
+  json_file:
+    description: "Path to the ArgoCD applications JSON file written during list_only mode."
+    value: "/tmp/argo-apps.json"
+
  
 
 runs:
@@ -204,11 +205,17 @@ runs:
         result-encoding: string
         script: |
           const { execSync } = require('child_process');
+          const fs = require('fs');
           const url = `${process.env.ARGOCD_URL}/api/v1/applications`;
           const cmd = `curl -s ${process.env.CURL_SSL_FLAGS} -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" "${url}"`;
-          const output = execSync(cmd).toString();
-          core.setOutput("applications", output);
-          core.info(`✅ Retrieved ArgoCD apps (${output.length} bytes)`);
+
+          const output = execSync(cmd, { encoding: "utf8" });
+          fs.writeFileSync("/tmp/argo-apps.json", output, "utf8");
+
+          const bytes = Buffer.byteLength(output, "utf8");
+          core.info(`✅ Retrieved ArgoCD apps (~${bytes} bytes)`);
+          core.info(`💾 Saved to /tmp/argo-apps.json`);
+
 
     - name: Exit after listing (if list_only)
       if: ${{ inputs.list_only == 'true' }}
