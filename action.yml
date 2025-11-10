@@ -59,7 +59,7 @@ inputs:
     description: "When true, just list applications and exit"
     required: false
     default: false
-    type: boolean
+    type: string
 
 
   delete_first:
