@@ -77,6 +77,10 @@ inputs:
     default: false
     type: string
 
+outputs:
+  applications:
+    description: "JSON list of ArgoCD applications (only set when list_only=true)"
+    value: ${{ steps.list_apps.outputs.applications }}
  
 
 runs:
