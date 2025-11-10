@@ -55,6 +55,13 @@ inputs:
     required: true
     type: string
 
+  list_only:
+    description: "When true, just list applications and exit"
+    required: false
+    default: false
+    type: boolean
+
+
   delete_first:
     required: false
     default: false
@@ -179,6 +186,36 @@ runs:
           core.setOutput('argocd_url', argocdUrl);
           core.setOutput('curl_ssl_flags', curlSslFlags);
           core.setOutput('token', finalToken);
+
+
+    - name: List ArgoCD applications (if list_only)
+      if: ${{ inputs.list_only == 'true' }}
+      id: list_apps
+      uses: actions/github-script@v7
+      env:
+        ARGOCD_URL: ${{ steps.argocd_conn.outputs.argocd_url }}
+        ARGOCD_TOKEN: ${{ steps.argocd_conn.outputs.token }}
+        CURL_SSL_FLAGS: ${{ steps.argocd_conn.outputs.curl_ssl_flags }}
+      with:
+        result-encoding: string
+        script: |
+          const { execSync } = require('child_process');
+          const url = `${process.env.ARGOCD_URL}/api/v1/applications`;
+          const cmd = `curl -s ${process.env.CURL_SSL_FLAGS} -H "Authorization: Bearer ${process.env.ARGOCD_TOKEN}" "${url}"`;
+          const output = execSync(cmd).toString();
+          core.setOutput("applications", output);
+          core.info(`✅ Retrieved ArgoCD apps (${output.length} bytes)`);
+
+    - name: Exit after listing (if list_only)
+      if: ${{ inputs.list_only == 'true' }}
+      run: |
+        echo "📋 Listed ArgoCD apps; exiting composite action."
+        exit 0
+      shell: bash
+
+
+
+
 
     - name: Delete ArgoCD apps (per app)
       if: ${{ inputs.delete_first == 'true' || inputs.delete_only == 'true' }}
