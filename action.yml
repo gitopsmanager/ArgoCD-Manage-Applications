@@ -282,7 +282,7 @@ runs:
         ARGOCD_TOKEN: ${{ steps.argocd_conn.outputs.token }}
         CURL_SSL_FLAGS: ${{ steps.argocd_conn.outputs.curl_ssl_flags }}
         NAMESPACE: ${{ inputs.namespace }}
-        TEMPLATE_FILE: ${{ github.action_path }}/templates/argocd-app-template-v6.json
+        TEMPLATE_FILE: ${{ github.action_path }}/templates/argocd-app-template-v7.json
       with:
         script: |
           const { execSync } = require('child_process');
