@@ -15,12 +15,9 @@
       "namespace": "{{ NAMESPACE }}"
     },
     "syncPolicy": {
-      "automated": {
-        "prune": true,
-        "selfHeal": false
-      },
       "syncOptions": [
-        "CreateNamespace=true"
+        "CreateNamespace=true",
+        "Prune=true"
       ]
     }
   }
