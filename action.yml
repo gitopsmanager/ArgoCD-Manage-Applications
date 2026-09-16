@@ -494,6 +494,17 @@ runs:
             let lastPhase, lastSync, lastHealth;
             let consecutiveErrors = 0;
 
+            // Diagnosis this loop already had and discarded. The whole
+            // Application object is fetched 36 times and only four fields were
+            // read from it; status.conditions -- which carries the
+            // ComparisonError naming the real cause -- was never looked at.
+            // Logged on CHANGE rather than every iteration, so a healthy run
+            // reads exactly as it did before.
+            let lastConditions = [];
+            let lastMessage = "";
+            let lastDiagSig = "";
+            let rawBodyLogged = false;
+
             try {
               for (let i = 0; i < 36; i++) {
                 try {
@@ -510,6 +521,40 @@ runs:
                   core.info(
                     `🔄 Iteration ${i + 1}/36 for ${appName}: phase=${lastPhase}, sync=${lastSync}, health=${lastHealth}`
                   );
+
+                  // All three undefined means the response was not an
+                  // Application at all. curl -s has no -f and no status-code
+                  // capture, so a 401/403/404 body parses as JSON, every field
+                  // reads undefined, and the poll below counts as a SUCCESS.
+                  // The body says which it was; nothing else in the log does.
+                  if (json?.status === undefined && !rawBodyLogged) {
+                    rawBodyLogged = true;
+                    core.warning(
+                      `⚠️ ${appName}: the response carries no status - this may not be an Application. ` +
+                      `A 401/403/404 body parses as JSON and reads as an empty status.`
+                    );
+                    core.info(`   raw response: ${String(status).slice(0, 1000)}`);
+                  }
+
+                  // status.conditions is where ArgoCD puts the reason it cannot
+                  // proceed -- ComparisonError, InvalidSpecError, and the rest.
+                  const conditions = Array.isArray(json?.status?.conditions)
+                    ? json.status.conditions : [];
+                  lastConditions = conditions;
+                  lastMessage = op?.message || "";
+
+                  const diagSig = JSON.stringify([conditions, lastMessage]);
+                  if (diagSig !== lastDiagSig) {
+                    lastDiagSig = diagSig;
+                    for (const c of conditions) {
+                      core.warning(
+                        `⚠️ ${appName} condition ${c?.type || "Unknown"}: ${c?.message || "(no message)"}`
+                      );
+                    }
+                    if (lastMessage) {
+                      core.info(`   operationState.message: ${lastMessage}`);
+                    }
+                  }
 
                   consecutiveErrors = 0; // reset if success
 
@@ -567,9 +612,27 @@ runs:
               }
 
               if (!ok) {
+                // The line people actually read when this goes wrong, so the
+                // diagnosis is repeated here rather than left 36 iterations up.
                 core.setFailed(
                   `❌ Sync did not complete in time for ${appName} (last phase=${lastPhase}, sync=${lastSync}, health=${lastHealth})`
                 );
+                if (lastConditions.length) {
+                  core.error(`   ${appName} was reporting:`);
+                  for (const c of lastConditions) {
+                    core.error(`     ${c?.type || "Unknown"}: ${c?.message || "(no message)"}`);
+                  }
+                } else if (lastPhase === undefined && lastSync === undefined && lastHealth === undefined) {
+                  core.error(
+                    `   No status was ever read for ${appName}. Check the ArgoCD URL and token: ` +
+                    `an unauthorised response parses as JSON and polls as though it succeeded.`
+                  );
+                } else {
+                  core.error(`   ${appName} reported no conditions - it was still reconciling.`);
+                }
+                if (lastMessage) {
+                  core.error(`   last operation message: ${lastMessage}`);
+                }
                 results[appKey] = "❌";
               } else {
                 results[appKey] = "✅";
