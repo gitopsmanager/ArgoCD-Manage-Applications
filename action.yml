@@ -494,6 +494,13 @@ runs:
             let lastPhase, lastSync, lastHealth;
             let consecutiveErrors = 0;
 
+            // Recorded, NOT acted on, while the loop is still running.
+            // core.setFailed cannot be undone, so calling it from inside a
+            // retry loop fails the whole job on a state the next poll may
+            // contradict -- which is what happened to a first deploy that was
+            // Degraded for one poll and Healthy on the next.
+            let failure = null;
+
             // Diagnosis this loop already had and discarded. The whole
             // Application object is fetched 36 times and only four fields were
             // read from it; status.conditions -- which carries the
@@ -558,21 +565,29 @@ runs:
 
                   consecutiveErrors = 0; // reset if success
 
-                  // Immediate fail conditions
+                  // Immediate fail conditions.
+                  //
+                  // break, not throw: a throw here lands in this try's own
+                  // catch, which treats any exception as a failed status fetch
+                  // -- so it logged "Failed to fetch status ... : stop", reset
+                  // nothing, and carried on polling for the full six minutes.
                   if (lastPhase === "Error" || lastSync === "Error" || lastSync === "Failed") {
-                    core.setFailed(`❌ Sync failed for ${appName} (phase=${lastPhase}, sync=${lastSync})`);
-                    results[appKey] = "❌";
-                    throw new Error("stop"); // break out entirely
+                    failure = `❌ Sync failed for ${appName} (phase=${lastPhase}, sync=${lastSync})`;
+                    break;
                   }
 
                   const startedAt = op?.startedAt ? new Date(op.startedAt).getTime() : 0;
                   const allSynced = allResourcesSynced(json);
 
                   if (startedAt > baseline) {
-                    if (lastHealth === "Degraded") {
-                      core.setFailed(`❌ ${appName} is Synced but health=Degraded.`);
-                      results[appKey] = "❌";
-                      throw new Error("stop");
+                    // Only once the operation has FINISHED. A Deployment is
+                    // Degraded by definition while it rolls out, and a first
+                    // deploy is Degraded from creation until its first replica
+                    // is ready -- phase=Running says ArgoCD is still working,
+                    // so health means nothing yet.
+                    if (lastPhase === "Succeeded" && lastHealth === "Degraded") {
+                      failure = `❌ ${appName} is Synced but health=Degraded.`;
+                      break;
                     }
                     if (lastPhase === "Succeeded" && lastSync === "Synced" && lastHealth === "Healthy") {
                       core.info(`✅ ${appName} synced after baseline and is Healthy.`);
@@ -611,10 +626,13 @@ runs:
                 await new Promise(r => setTimeout(r, 10000));
               }
 
-              if (!ok) {
+              // Decided ONCE, from the final state. Everything above only
+              // records; nothing fails a run it has not finished watching.
+              if (failure || !ok) {
                 // The line people actually read when this goes wrong, so the
                 // diagnosis is repeated here rather than left 36 iterations up.
                 core.setFailed(
+                  failure ||
                   `❌ Sync did not complete in time for ${appName} (last phase=${lastPhase}, sync=${lastSync}, health=${lastHealth})`
                 );
                 if (lastConditions.length) {
@@ -634,6 +652,11 @@ runs:
                   core.error(`   last operation message: ${lastMessage}`);
                 }
                 results[appKey] = "❌";
+                core.endGroup();
+                // A definite failure stops the remaining apps, as it always
+                // has. A timeout does not -- the others may still be fine, and
+                // their state is worth reporting.
+                if (failure) break;
               } else {
                 results[appKey] = "✅";
               }
