@@ -135,4 +135,4 @@ All tags will now **increment forward permanently** — no re-use or re-tagging 
 
 ## 📄 License
 
-MIT License © Affinity7 Consulting Ltd
+MIT License © GitOps Manager, S.L.
