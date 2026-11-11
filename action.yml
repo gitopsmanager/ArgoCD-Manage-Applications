@@ -3,7 +3,7 @@ description: "Handles full ArgoCD lifecycle: auth, connect, delete, create, sync
 
 inputs:
   argocd_url:
-    description: "Full ArgoCD base URL (e.g. https://aks-prod-weu-argocd-argocd-web-ui.affinity7software.com)"
+    description: "Full ArgoCD base URL (e.g. https://aks-prod-weu-argocd-argocd-web-ui.example.com)"
     required: true
     type: string
 

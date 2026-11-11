@@ -52,7 +52,7 @@ See the [nunjucks LICENSE file](https://github.com/mozilla/nunjucks/blob/main/LI
 
 | Name | Description | Required | Default |
 |------|--------------|-----------|----------|
-| `argocd_url` | Full ArgoCD base URL (e.g. `https://aks-prod-weu-argocd-argocd-web-ui.affinity7software.com`) | ✅ Yes | — |
+| `argocd_url` | Full ArgoCD base URL (e.g. `https://aks-prod-weu-argocd-argocd-web-ui.example.com`) | ✅ Yes | — |
 | `argocd_auth_token` | Optional ArgoCD API token | ❌ No | — |
 | `argocd_username` | ArgoCD username (used if token not provided) | ❌ No | — |
 | `argocd_password` | ArgoCD password (used if token not provided) | ❌ No | — |
